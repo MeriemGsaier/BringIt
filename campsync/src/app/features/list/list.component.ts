@@ -33,7 +33,7 @@ type FilterCategory = ItemCategory | 'All';
             </div>
           </div>
           <div class="flex items-center gap-2">
-            <span class="text-sm text-bark-500">👤 {{ nickname() }}</span>
+            <span class="text-sm text-bark-500">{{ avatar() }} {{ nickname() }}</span>
             <button (click)="leaveSession()" class="btn-ghost text-xs px-2 py-1">Leave</button>
           </div>
         </div>
@@ -63,7 +63,7 @@ type FilterCategory = ItemCategory | 'All';
         </div>
 
         <!-- Add Item Form -->
-        <app-add-item (itemAdded)="onItemAdded($event)" />
+        <app-add-item class="mt-2 block" [participants]="participants()" (itemAdded)="onItemAdded($event)" />
 
         <!-- Category Filter -->
         <div class="flex gap-2 overflow-x-auto pb-1">
@@ -118,9 +118,11 @@ type FilterCategory = ItemCategory | 'All';
                 @for (item of pending; track item.id) {
                   <app-item-card
                     [campItem]="item"
+                    [participants]="participants()"
                     (markBought)="onMarkBought($event)"
                     (unmarkBought)="onUnmarkBought($event)"
-                    (delete)="onDelete($event)"
+                    (deleteItem)="onDelete($event)"
+                    (editItem)="onEditItem($event)"
                   />
                 }
               </div>
@@ -137,9 +139,11 @@ type FilterCategory = ItemCategory | 'All';
                 @for (item of bought; track item.id) {
                   <app-item-card
                     [campItem]="item"
+                    [participants]="participants()"
                     (markBought)="onMarkBought($event)"
                     (unmarkBought)="onUnmarkBought($event)"
-                    (delete)="onDelete($event)"
+                    (deleteItem)="onDelete($event)"
+                    (editItem)="onEditItem($event)"
                   />
                 }
               </div>
@@ -157,6 +161,7 @@ export class ListComponent implements OnInit, OnDestroy {
 
   readonly sessionId = this.sessionService.sessionId;
   readonly nickname = this.nicknameService.nickname;
+  readonly avatar = this.nicknameService.avatar;
 
   session = signal<Session | undefined>(undefined);
   items = signal<CampItem[]>([]);
@@ -165,6 +170,12 @@ export class ListComponent implements OnInit, OnDestroy {
 
   readonly categories = CATEGORIES;
   private itemsChannel?: RealtimeChannel;
+
+  participants = computed(() => {
+    const me = this.nicknameService.nickname() ?? 'Anonymous';
+    const names = this.items().map(i => i.addedBy).filter(Boolean);
+    return [...new Set([me, ...names])];
+  });
 
   filteredItems  = computed(() => {
     const f = this.activeFilter();
@@ -228,7 +239,12 @@ export class ListComponent implements OnInit, OnDestroy {
     });
   }
 
+  async onEditItem(event: { id: string; changes: Partial<CampItem> }): Promise<void> {
+    await this.supabaseService.updateItem(event.id, event.changes);
+  }
+
   async onDelete(itemId: string): Promise<void> {
+    this.items.update(list => list.filter(i => i.id !== itemId));
     await this.supabaseService.deleteItem(itemId);
   }
 

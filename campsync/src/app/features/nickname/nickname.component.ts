@@ -1,6 +1,6 @@
-import { Component, inject, signal, output } from '@angular/core';
+import { Component, inject, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { NicknameService } from '../../core/services/nickname.service';
+import { NicknameService, AVATARS } from '../../core/services/nickname.service';
 
 @Component({
   selector: 'app-nickname',
@@ -12,7 +12,26 @@ import { NicknameService } from '../../core/services/nickname.service';
         <div class="text-center mb-6">
           <div class="text-5xl mb-3">⛺</div>
           <h2 class="text-2xl font-bold text-bark-800">Welcome to BringIt!</h2>
-          <p class="text-bark-500 mt-1 text-sm">Enter a nickname so your friends know it's you.</p>
+          <p class="text-bark-500 mt-1 text-sm">Pick an avatar and choose a nickname.</p>
+        </div>
+
+        <!-- Avatar picker -->
+        <div class="mb-5">
+          <p class="text-xs font-semibold text-bark-500 uppercase tracking-wider mb-2 text-center">Choose your avatar</p>
+          <div class="grid grid-cols-4 gap-2">
+            @for (av of avatars; track av) {
+              <button
+                type="button"
+                class="text-3xl w-14 h-14 rounded-xl flex items-center justify-center transition-all border-2 mx-auto"
+                [class.border-forest-500]="selectedAvatar === av"
+                [class.bg-forest-50]="selectedAvatar === av"
+                [class.border-transparent]="selectedAvatar !== av"
+                [class.bg-bark-50]="selectedAvatar !== av"
+                [class.hover:bg-bark-100]="selectedAvatar !== av"
+                (click)="selectedAvatar = av"
+              >{{ av }}</button>
+            }
+          </div>
         </div>
 
         <form (ngSubmit)="submit()" #f="ngForm">
@@ -31,7 +50,7 @@ import { NicknameService } from '../../core/services/nickname.service';
             class="btn-primary w-full text-base"
             [disabled]="!name.trim()"
           >
-            Let's Go! 🏕️
+            {{ selectedAvatar }} Let's Go!
           </button>
         </form>
       </div>
@@ -42,12 +61,15 @@ export class NicknameComponent {
   private nicknameService = inject(NicknameService);
   readonly saved = output<string>();
 
+  readonly avatars = AVATARS;
+  selectedAvatar = AVATARS[0];
   name = '';
 
   submit(): void {
     const trimmed = this.name.trim();
     if (!trimmed) return;
     this.nicknameService.setNickname(trimmed);
+    this.nicknameService.setAvatar(this.selectedAvatar);
     this.saved.emit(trimmed);
   }
 }
