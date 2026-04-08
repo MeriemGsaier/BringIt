@@ -1,4 +1,4 @@
-import { Component, inject, signal, output } from '@angular/core';
+import { Component, inject, output, input, computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CampItem, ItemCategory, CATEGORIES } from '../../core/models/item.model';
 import { NicknameService } from '../../core/services/nickname.service';
@@ -37,14 +37,12 @@ import { NicknameService } from '../../core/services/nickname.service';
               <option [value]="cat">{{ cat }}</option>
             }
           </select>
-          <input
-            class="input-field flex-1"
-            type="text"
-            [(ngModel)]="assignedTo"
-            name="assignedTo"
-            placeholder="Who's bringing? (optional)"
-            maxlength="30"
-          />
+          <select class="input-field flex-1" [(ngModel)]="assignedTo" name="assignedTo">
+            <option value="">Me ({{ currentNickname() }})</option>
+            @for (person of otherParticipants(); track person) {
+              <option [value]="person">{{ person }}</option>
+            }
+          </select>
         </div>
         <button type="submit" class="btn-primary w-full" [disabled]="!name.trim()">
           Add to List
@@ -56,6 +54,7 @@ import { NicknameService } from '../../core/services/nickname.service';
 export class AddItemComponent {
   private nicknameService = inject(NicknameService);
 
+  readonly participants = input<string[]>([]);
   readonly itemAdded = output<Omit<CampItem, 'id'>>();
 
   readonly categories = CATEGORIES;
@@ -64,9 +63,16 @@ export class AddItemComponent {
   category: ItemCategory = 'Food';
   assignedTo = '';
 
+  readonly currentNickname = computed(() => this.nicknameService.nickname() ?? 'Anonymous');
+
+  readonly otherParticipants = computed(() => {
+    const me = this.currentNickname();
+    return this.participants().filter(p => p !== me);
+  });
+
   submit(): void {
     if (!this.name.trim()) return;
-    const nickname = this.nicknameService.nickname() ?? 'Anonymous';
+    const nickname = this.currentNickname();
 
     this.itemAdded.emit({
       name: this.name.trim(),

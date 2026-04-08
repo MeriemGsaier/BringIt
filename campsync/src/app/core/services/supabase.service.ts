@@ -78,6 +78,10 @@ export class SupabaseService {
 
   async updateItem(itemId: string, changes: Partial<CampItem>): Promise<void> {
     const row: Record<string, any> = {};
+    if (changes.name !== undefined) row['name'] = changes.name;
+    if (changes.category !== undefined) row['category'] = changes.category;
+    if (changes.quantity !== undefined) row['quantity'] = changes.quantity;
+    if (changes.assignedTo !== undefined) row['assigned_to'] = changes.assignedTo;
     if (changes.bought !== undefined) row['bought'] = changes.bought;
     if ('boughtBy' in changes) row['bought_by'] = changes.boughtBy ?? null;
     if ('boughtAt' in changes) row['bought_at'] = changes.boughtAt ?? null;
