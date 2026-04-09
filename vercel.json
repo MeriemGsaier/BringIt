@@ -1,0 +1,8 @@
+{
+  "buildCommand": "npm --prefix campsync install && npm --prefix campsync run build",
+  "outputDirectory": "campsync/dist/bringit/browser",
+  "routes": [
+    { "handle": "filesystem" },
+    { "src": "/.*", "dest": "/index.html" }
+  ]
+}
