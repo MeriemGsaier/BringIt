@@ -12,7 +12,7 @@ import { NicknameService } from '../../core/services/nickname.service';
     @let colors = categoryColors(item.category);
     <div
       class="card flex items-start gap-3 transition-all duration-300"
-      [class.opacity-60]="item.bought && !editing()"
+      [class.opacity-50]="item.bought && !editing()"
     >
       @if (editing()) {
         <!-- Edit mode -->
@@ -58,18 +58,34 @@ import { NicknameService } from '../../core/services/nickname.service';
           </div>
         </div>
       } @else {
-        <!-- Category Badge -->
-        <div class="flex-shrink-0 mt-0.5">
-          <span class="badge {{ colors.bg }} {{ colors.text }} border {{ colors.border }}">
-            {{ categoryEmoji(item.category) }} {{ item.category }}
-          </span>
-        </div>
+
+        <!-- Checkbox -->
+        <button
+          (click)="item.bought ? unmarkBought.emit(item.id) : markBought.emit(item.id)"
+          class="flex-shrink-0 mt-0.5 w-6 h-6 rounded-full border-2 transition-all duration-200 flex items-center justify-center"
+          [class.bg-forest-600]="item.bought"
+          [class.border-forest-600]="item.bought"
+          [class.border-bark-300]="!item.bought"
+          [class.hover:border-forest-400]="!item.bought"
+          title="{{ item.bought ? 'Mark as not bought' : 'Mark as bought' }}"
+        >
+          @if (item.bought) {
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-white" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+            </svg>
+          }
+        </button>
 
         <!-- Main content -->
         <div class="flex-1 min-w-0">
           <div class="flex items-start justify-between gap-2">
             <div>
-              <p class="font-semibold text-bark-800 leading-snug" [class.line-through]="item.bought">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="badge {{ colors.bg }} {{ colors.text }} border {{ colors.border }}">
+                  {{ categoryEmoji(item.category) }} {{ item.category }}
+                </span>
+              </div>
+              <p class="font-semibold text-bark-800 leading-snug mt-1" [class.line-through]="item.bought" [class.text-bark-400]="item.bought">
                 {{ item.name }}
               </p>
               <p class="text-sm text-bark-500 mt-0.5">
@@ -79,41 +95,42 @@ import { NicknameService } from '../../core/services/nickname.service';
               </p>
               @if (item.bought && item.boughtBy) {
                 <p class="text-xs text-forest-600 mt-1 font-medium">
-                  ✅ Bought by {{ item.boughtBy }}
+                  Bought by {{ item.boughtBy }}
                 </p>
               }
             </div>
 
-            <!-- Actions -->
-            <div class="flex items-center gap-1 flex-shrink-0">
-              @if (!item.bought) {
-                <button
-                  (click)="markBought.emit(item.id)"
-                  class="btn-primary text-sm px-3 py-1.5 whitespace-nowrap"
-                  title="Mark as bought"
-                >
-                  Mark Bought
-                </button>
-              } @else {
-                <button
-                  (click)="unmarkBought.emit(item.id)"
-                  class="btn-ghost text-sm px-3 py-1.5 text-forest-700 whitespace-nowrap"
-                  title="Undo"
-                >
-                  Undo
-                </button>
+            <!-- Three-dot menu -->
+            <div class="relative flex-shrink-0">
+              <button
+                (click)="menuOpen.set(!menuOpen())"
+                class="w-8 h-8 flex items-center justify-center rounded-lg text-bark-400 hover:text-bark-700 hover:bg-bark-100 transition-colors"
+                title="More options"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M10 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4z"/>
+                </svg>
+              </button>
+
+              @if (menuOpen()) {
+                <div class="fixed inset-0 z-10" (click)="menuOpen.set(false)"></div>
+                <div class="absolute right-0 top-full mt-1 z-20 bg-white rounded-xl shadow-lg border border-bark-100 py-1 min-w-[130px]">
+                  <button
+                    (click)="startEdit(); menuOpen.set(false)"
+                    class="w-full text-left px-4 py-2 text-sm text-bark-700 hover:bg-bark-50 flex items-center gap-2 transition-colors"
+                  >
+                    <span>✏️</span> Edit
+                  </button>
+                  <button
+                    (click)="confirming.set(true); menuOpen.set(false)"
+                    class="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                  >
+                    <span>🗑️</span> Delete
+                  </button>
+                </div>
               }
-              <button
-                (click)="startEdit()"
-                class="btn-ghost text-sm px-2 py-1.5 text-bark-400 hover:text-bark-700"
-                title="Edit item"
-              >✏️</button>
-              <button
-                (click)="confirming.set(true)"
-                class="btn-ghost text-sm px-2 py-1.5 text-red-400 hover:text-red-600"
-                title="Remove item"
-              >✕</button>
             </div>
+
           </div>
         </div>
       }
@@ -161,6 +178,7 @@ export class ItemCardComponent {
   readonly categories = CATEGORIES;
   readonly editing = signal(false);
   readonly confirming = signal(false);
+  readonly menuOpen = signal(false);
 
   editName = '';
   editQuantity = 1;
