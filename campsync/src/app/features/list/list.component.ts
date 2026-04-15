@@ -9,6 +9,7 @@ import { ItemCardComponent } from './item-card.component';
 import { AddItemComponent } from './add-item.component';
 
 type FilterCategory = ItemCategory | 'All';
+type FilterPerson = string | 'All';
 
 @Component({
   selector: 'app-list',
@@ -64,6 +65,11 @@ type FilterCategory = ItemCategory | 'All';
               <p class="text-xl font-bold mt-0.5">
                 {{ boughtCount() }} of {{ totalCount() }} items bought ✅
               </p>
+              @if (hasSpending()) {
+                <p class="text-forest-200 text-sm mt-1">
+                  💰 Total spent: {{ totalSpent().toFixed(2) }}
+                </p>
+              }
             </div>
             <div class="text-right">
               <div class="text-3xl font-bold">{{ progressPercent() }}%</div>
@@ -106,6 +112,38 @@ type FilterCategory = ItemCategory | 'All';
             </button>
           }
         </div>
+
+        <!-- Person Filter -->
+        @if (assignedPersons().length > 1) {
+          <div class="flex gap-2 overflow-x-auto pb-1">
+            <button
+              (click)="setPerson('All')"
+              class="flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors"
+              [class.bg-bark-600]="activePerson() === 'All'"
+              [class.text-white]="activePerson() === 'All'"
+              [class.bg-white]="activePerson() !== 'All'"
+              [class.text-bark-600]="activePerson() !== 'All'"
+              [class.border]="activePerson() !== 'All'"
+              [class.border-bark-200]="activePerson() !== 'All'"
+            >
+              Everyone
+            </button>
+            @for (person of assignedPersons(); track person) {
+              <button
+                (click)="setPerson(person)"
+                class="flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors"
+                [class.bg-bark-600]="activePerson() === person"
+                [class.text-white]="activePerson() === person"
+                [class.bg-white]="activePerson() !== person"
+                [class.text-bark-600]="activePerson() !== person"
+                [class.border]="activePerson() !== person"
+                [class.border-bark-200]="activePerson() !== person"
+              >
+                👤 {{ person === nickname() ? 'Me' : person }} ({{ countByPerson(person) }})
+              </button>
+            }
+          </div>
+        }
 
         <!-- Item List -->
         @if (loading()) {
@@ -198,6 +236,7 @@ export class ListComponent implements OnInit, OnDestroy {
   items         = signal<CampItem[]>([]);
   loading       = signal(true);
   activeFilter  = signal<FilterCategory>('All');
+  activePerson  = signal<FilterPerson>('All');
   showAddModal  = signal(false);
 
   readonly categories = CATEGORIES;
@@ -209,9 +248,18 @@ export class ListComponent implements OnInit, OnDestroy {
     return [...new Set([me, ...names])];
   });
 
-  filteredItems   = computed(() => {
-    const f = this.activeFilter();
-    return f === 'All' ? this.items() : this.items().filter(i => i.category === f);
+  assignedPersons = computed(() => {
+    const names = this.items().map(i => i.assignedTo).filter(Boolean);
+    return [...new Set(names)].sort();
+  });
+
+  filteredItems = computed(() => {
+    let list = this.items();
+    const cat = this.activeFilter();
+    const person = this.activePerson();
+    if (cat !== 'All') list = list.filter(i => i.category === cat);
+    if (person !== 'All') list = list.filter(i => i.assignedTo === person);
+    return list;
   });
   pendingItems    = computed(() => this.filteredItems().filter(i => !i.bought));
   boughtItems     = computed(() => this.filteredItems().filter(i => i.bought));
@@ -221,6 +269,12 @@ export class ListComponent implements OnInit, OnDestroy {
     const total = this.totalCount();
     return total === 0 ? 0 : Math.round((this.boughtCount() / total) * 100);
   });
+  totalSpent = computed(() =>
+    this.boughtItems()
+      .filter(i => i.price != null)
+      .reduce((sum, i) => sum + (i.price ?? 0), 0)
+  );
+  hasSpending = computed(() => this.items().some(i => i.bought && i.price != null));
 
   ngOnInit(): void {
     const id = this.sessionId();
@@ -241,11 +295,22 @@ export class ListComponent implements OnInit, OnDestroy {
   }
 
   setFilter(cat: FilterCategory): void { this.activeFilter.set(cat); }
+  setPerson(person: FilterPerson): void { this.activePerson.set(person); }
 
   categoryEmoji(cat: ItemCategory): string { return CATEGORY_EMOJIS[cat] ?? '📦'; }
 
   countByCategory(cat: ItemCategory): number {
-    return this.items().filter(i => i.category === cat).length;
+    const person = this.activePerson();
+    let list = this.items();
+    if (person !== 'All') list = list.filter(i => i.assignedTo === person);
+    return list.filter(i => i.category === cat).length;
+  }
+
+  countByPerson(person: string): number {
+    const cat = this.activeFilter();
+    let list = this.items();
+    if (cat !== 'All') list = list.filter(i => i.category === cat);
+    return list.filter(i => i.assignedTo === person).length;
   }
 
   async onItemAdded(item: Omit<CampItem, 'id'>): Promise<void> {
@@ -253,16 +318,19 @@ export class ListComponent implements OnInit, OnDestroy {
     if (id) await this.supabaseService.addItem(id, item);
   }
 
-  async onMarkBought(itemId: string): Promise<void> {
-    await this.supabaseService.updateItem(itemId, {
+  async onMarkBought(event: { id: string; price?: number }): Promise<void> {
+    await this.supabaseService.updateItem(event.id, {
       bought: true,
       boughtBy: this.nicknameService.nickname() ?? 'Someone',
       boughtAt: Date.now(),
+      price: event.price,
     });
   }
 
   async onUnmarkBought(itemId: string): Promise<void> {
-    await this.supabaseService.updateItem(itemId, { bought: false, boughtBy: undefined, boughtAt: undefined });
+    await this.supabaseService.updateItem(itemId, {
+      bought: false, boughtBy: undefined, boughtAt: undefined, price: undefined,
+    });
   }
 
   async onEditItem(event: { id: string; changes: Partial<CampItem> }): Promise<void> {

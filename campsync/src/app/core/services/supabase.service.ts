@@ -70,6 +70,7 @@ export class SupabaseService {
       bought: item.bought,
       bought_by: item.boughtBy ?? null,
       bought_at: item.boughtAt ?? null,
+      price: item.price ?? null,
       added_by: item.addedBy,
       created_at: item.createdAt,
     });
@@ -85,6 +86,7 @@ export class SupabaseService {
     if (changes.bought !== undefined) row['bought'] = changes.bought;
     if ('boughtBy' in changes) row['bought_by'] = changes.boughtBy ?? null;
     if ('boughtAt' in changes) row['bought_at'] = changes.boughtAt ?? null;
+    if ('price' in changes) row['price'] = changes.price ?? null;
     const { error } = await this.client.from('items').update(row).eq('id', itemId);
     if (error) throw error;
   }
@@ -104,6 +106,7 @@ export class SupabaseService {
       bought: row.bought,
       boughtBy: row.bought_by ?? undefined,
       boughtAt: row.bought_at ?? undefined,
+      price: row.price != null ? Number(row.price) : undefined,
       addedBy: row.added_by,
       createdAt: row.created_at,
     };
