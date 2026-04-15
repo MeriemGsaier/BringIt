@@ -12,7 +12,7 @@ import { NicknameService } from '../../core/services/nickname.service';
     @let colors = categoryColors(item.category);
     <div
       class="card flex items-start gap-3 transition-all duration-300"
-      [class.opacity-50]="item.bought && !editing()"
+      [class.opacity-50]="item.bought && !editing() && !buyingMode()"
     >
       @if (editing()) {
         <!-- Edit mode -->
@@ -48,6 +48,17 @@ import { NicknameService } from '../../core/services/nickname.service';
               }
             </select>
           </div>
+          <div class="flex gap-2 items-center">
+            <input
+              class="input-field flex-1 text-sm"
+              type="number"
+              [(ngModel)]="editPrice"
+              placeholder="Price (optional)"
+              min="0"
+              step="0.01"
+            />
+            <span class="text-xs text-bark-400 flex-shrink-0">price</span>
+          </div>
           <div class="flex gap-2 justify-end">
             <button (click)="cancelEdit()" class="btn-ghost text-sm px-3 py-1.5">Cancel</button>
             <button
@@ -61,7 +72,7 @@ import { NicknameService } from '../../core/services/nickname.service';
 
         <!-- Checkbox -->
         <button
-          (click)="item.bought ? unmarkBought.emit(item.id) : markBought.emit(item.id)"
+          (click)="toggleBought()"
           class="flex-shrink-0 mt-0.5 w-6 h-6 rounded-full border-2 transition-all duration-200 flex items-center justify-center"
           [class.bg-forest-600]="item.bought"
           [class.border-forest-600]="item.bought"
@@ -79,7 +90,7 @@ import { NicknameService } from '../../core/services/nickname.service';
         <!-- Main content -->
         <div class="flex-1 min-w-0">
           <div class="flex items-start justify-between gap-2">
-            <div>
+            <div class="flex-1 min-w-0">
               <div class="flex items-center gap-2 flex-wrap">
                 <span class="badge {{ colors.bg }} {{ colors.text }} border {{ colors.border }}">
                   {{ categoryEmoji(item.category) }} {{ item.category }}
@@ -95,7 +106,7 @@ import { NicknameService } from '../../core/services/nickname.service';
               </p>
               @if (item.bought && item.boughtBy) {
                 <p class="text-xs text-forest-600 mt-1 font-medium">
-                  Bought by {{ item.boughtBy }}
+                  Bought by {{ item.boughtBy }}@if (item.price != null) { · {{ item.price.toFixed(2) }} }
                 </p>
               }
             </div>
@@ -132,6 +143,30 @@ import { NicknameService } from '../../core/services/nickname.service';
             </div>
 
           </div>
+
+          <!-- Inline buy confirmation with price input -->
+          @if (buyingMode()) {
+            <div class="mt-3 pt-3 border-t border-bark-100">
+              <p class="text-sm font-medium text-bark-700 mb-2">Add price? (optional)</p>
+              <div class="flex items-center gap-2">
+                <input
+                  class="input-field flex-1 text-sm"
+                  type="number"
+                  [(ngModel)]="pendingPrice"
+                  placeholder="e.g. 12.50"
+                  min="0"
+                  step="0.01"
+                  autofocus
+                />
+                <button (click)="confirmBought()" class="btn-primary text-sm px-3 py-1.5 flex-shrink-0">
+                  Got it!
+                </button>
+                <button (click)="buyingMode.set(false)" class="btn-ghost text-sm px-3 py-1.5 flex-shrink-0">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          }
         </div>
       }
     </div>
@@ -168,22 +203,25 @@ import { NicknameService } from '../../core/services/nickname.service';
 export class ItemCardComponent {
   private nicknameService = inject(NicknameService);
 
-  readonly campItem = input.required<CampItem>();
+  readonly campItem    = input.required<CampItem>();
   readonly participants = input<string[]>([]);
-  readonly markBought = output<string>();
+  readonly markBought  = output<{ id: string; price?: number }>();
   readonly unmarkBought = output<string>();
-  readonly deleteItem = output<string>();
-  readonly editItem = output<{ id: string; changes: Partial<CampItem> }>();
+  readonly deleteItem  = output<string>();
+  readonly editItem    = output<{ id: string; changes: Partial<CampItem> }>();
 
   readonly categories = CATEGORIES;
-  readonly editing = signal(false);
+  readonly editing    = signal(false);
   readonly confirming = signal(false);
-  readonly menuOpen = signal(false);
+  readonly menuOpen   = signal(false);
+  readonly buyingMode = signal(false);
 
-  editName = '';
-  editQuantity = 1;
+  editName       = '';
+  editQuantity   = 1;
   editCategory: ItemCategory = 'Food';
   editAssignedTo = '';
+  editPrice: number | null = null;
+  pendingPrice: number | null = null;
 
   readonly currentNickname = computed(() => this.nicknameService.nickname() ?? 'Anonymous');
 
@@ -192,12 +230,32 @@ export class ItemCardComponent {
     return [me, ...this.participants().filter(p => p !== me)];
   });
 
+  toggleBought(): void {
+    const item = this.campItem();
+    if (item.bought) {
+      this.unmarkBought.emit(item.id);
+    } else if (!this.buyingMode()) {
+      this.pendingPrice = null;
+      this.buyingMode.set(true);
+    }
+  }
+
+  confirmBought(): void {
+    this.markBought.emit({
+      id: this.campItem().id,
+      price: this.pendingPrice != null && this.pendingPrice > 0 ? this.pendingPrice : undefined,
+    });
+    this.buyingMode.set(false);
+    this.pendingPrice = null;
+  }
+
   startEdit(): void {
     const item = this.campItem();
-    this.editName = item.name;
-    this.editQuantity = item.quantity;
-    this.editCategory = item.category;
+    this.editName       = item.name;
+    this.editQuantity   = item.quantity;
+    this.editCategory   = item.category;
     this.editAssignedTo = item.assignedTo;
+    this.editPrice      = item.price ?? null;
     this.confirming.set(false);
     this.editing.set(true);
   }
@@ -208,15 +266,18 @@ export class ItemCardComponent {
 
   saveEdit(): void {
     if (!this.editName.trim()) return;
-    this.editItem.emit({
-      id: this.campItem().id,
-      changes: {
-        name: this.editName.trim(),
-        quantity: this.editQuantity || 1,
-        category: this.editCategory,
-        assignedTo: this.editAssignedTo,
-      },
-    });
+    const changes: Partial<CampItem> = {
+      name:       this.editName.trim(),
+      quantity:   this.editQuantity || 1,
+      category:   this.editCategory,
+      assignedTo: this.editAssignedTo,
+    };
+    if (this.editPrice != null && this.editPrice > 0) {
+      changes.price = this.editPrice;
+    } else {
+      changes.price = undefined;
+    }
+    this.editItem.emit({ id: this.campItem().id, changes });
     this.editing.set(false);
   }
 
