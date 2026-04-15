@@ -19,27 +19,42 @@ type FilterCategory = ItemCategory | 'All';
 
       <!-- Header -->
       <header class="sticky top-0 z-30 bg-white/90 backdrop-blur-sm border-b border-bark-100 shadow-sm">
-        <div class="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <span class="text-2xl">⛺</span>
-            <div>
-              <h1 class="font-bold text-bark-800 leading-tight">
-                {{ session()?.name ?? 'Loading...' }}
-              </h1>
-              <p class="text-xs text-bark-400">
-                Code: <span class="font-mono font-bold tracking-widest text-forest-600">{{ sessionId() }}</span>
-                <button (click)="copyCode()" class="ml-1.5 text-bark-400 hover:text-forest-600" title="Copy code">📋</button>
-              </p>
+        <div class="max-w-2xl mx-auto px-4 py-3 grid grid-cols-3 items-center gap-2">
+
+          <!-- Left: back navigation -->
+          <button
+            (click)="goToRooms()"
+            class="flex items-center gap-1 text-forest-600 hover:text-forest-800 font-medium text-sm transition-colors w-fit"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd"/>
+            </svg>
+            Rooms
+          </button>
+
+          <!-- Center: trip title + code -->
+          <div class="text-center">
+            <h1 class="font-bold text-bark-800 text-sm leading-tight truncate">
+              ⛺ {{ session()?.name ?? 'Loading...' }}
+            </h1>
+            <p class="text-xs text-bark-400 mt-0.5">
+              <span class="font-mono font-bold tracking-widest text-forest-600">{{ sessionId() }}</span>
+              <button (click)="copyCode()" class="ml-1 text-bark-300 hover:text-forest-600 transition-colors" title="Copy code">📋</button>
+            </p>
+          </div>
+
+          <!-- Right: user identity -->
+          <div class="flex items-center gap-2 justify-end">
+            <div class="w-8 h-8 rounded-full bg-forest-100 border border-forest-200 flex items-center justify-center text-lg leading-none flex-shrink-0">
+              {{ avatar() }}
             </div>
+            <span class="text-sm font-medium text-bark-700 truncate max-w-[80px]">{{ nickname() }}</span>
           </div>
-          <div class="flex items-center gap-2">
-            <span class="text-sm text-bark-500">{{ avatar() }} {{ nickname() }}</span>
-            <button (click)="leaveSession()" class="btn-ghost text-xs px-2 py-1">Leave</button>
-          </div>
+
         </div>
       </header>
 
-      <main class="max-w-2xl mx-auto px-4 py-5 space-y-4">
+      <main class="max-w-2xl mx-auto px-4 py-5 space-y-6 pb-24">
 
         <!-- Progress Banner -->
         <div class="card bg-gradient-to-r from-forest-600 to-forest-700 text-white border-0">
@@ -61,9 +76,6 @@ type FilterCategory = ItemCategory | 'All';
             </div>
           </div>
         </div>
-
-        <!-- Add Item Form -->
-        <app-add-item class="mt-2 block" [participants]="participants()" (itemAdded)="onItemAdded($event)" />
 
         <!-- Category Filter -->
         <div class="flex gap-2 overflow-x-auto pb-1">
@@ -105,7 +117,7 @@ type FilterCategory = ItemCategory | 'All';
           <div class="text-center py-10 text-bark-400">
             <div class="text-4xl mb-2">🏕️</div>
             <p class="font-medium">No items yet!</p>
-            <p class="text-sm mt-1">Add the first item to get started.</p>
+            <p class="text-sm mt-1">Tap + to add the first item.</p>
           </div>
         } @else {
           @let pending = pendingItems();
@@ -114,7 +126,7 @@ type FilterCategory = ItemCategory | 'All';
               <h3 class="text-sm font-semibold text-bark-500 uppercase tracking-wider mb-2">
                 Still needed ({{ pending.length }})
               </h3>
-              <div class="space-y-2">
+              <div class="space-y-6">
                 @for (item of pending; track item.id) {
                   <app-item-card
                     [campItem]="item"
@@ -135,7 +147,7 @@ type FilterCategory = ItemCategory | 'All';
               <h3 class="text-sm font-semibold text-forest-600 uppercase tracking-wider mb-2">
                 Got it ✅ ({{ bought.length }})
               </h3>
-              <div class="space-y-2">
+              <div class="space-y-4">
                 @for (item of bought; track item.id) {
                   <app-item-card
                     [campItem]="item"
@@ -151,22 +163,42 @@ type FilterCategory = ItemCategory | 'All';
           }
         }
       </main>
+
+      <!-- FAB: Add Item -->
+      <button
+        (click)="showAddModal.set(true)"
+        class="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-forest-600 hover:bg-forest-700 text-white shadow-lg flex items-center justify-center transition-colors"
+        title="Add item"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+      </button>
+
+      <!-- Add Item Modal -->
+      <app-add-item
+        [isOpen]="showAddModal()"
+        [participants]="participants()"
+        (itemAdded)="onItemAdded($event)"
+        (closed)="showAddModal.set(false)"
+      />
     </div>
   `,
 })
 export class ListComponent implements OnInit, OnDestroy {
   private supabaseService = inject(SupabaseService);
-  private sessionService = inject(SessionService);
+  private sessionService  = inject(SessionService);
   private nicknameService = inject(NicknameService);
 
   readonly sessionId = this.sessionService.sessionId;
-  readonly nickname = this.nicknameService.nickname;
-  readonly avatar = this.nicknameService.avatar;
+  readonly nickname  = this.nicknameService.nickname;
+  readonly avatar    = this.nicknameService.avatar;
 
-  session = signal<Session | undefined>(undefined);
-  items = signal<CampItem[]>([]);
-  loading = signal(true);
-  activeFilter = signal<FilterCategory>('All');
+  session       = signal<Session | undefined>(undefined);
+  items         = signal<CampItem[]>([]);
+  loading       = signal(true);
+  activeFilter  = signal<FilterCategory>('All');
+  showAddModal  = signal(false);
 
   readonly categories = CATEGORIES;
   private itemsChannel?: RealtimeChannel;
@@ -177,14 +209,14 @@ export class ListComponent implements OnInit, OnDestroy {
     return [...new Set([me, ...names])];
   });
 
-  filteredItems  = computed(() => {
+  filteredItems   = computed(() => {
     const f = this.activeFilter();
     return f === 'All' ? this.items() : this.items().filter(i => i.category === f);
   });
-  pendingItems   = computed(() => this.filteredItems().filter(i => !i.bought));
-  boughtItems    = computed(() => this.filteredItems().filter(i => i.bought));
-  totalCount     = computed(() => this.items().length);
-  boughtCount    = computed(() => this.items().filter(i => i.bought).length);
+  pendingItems    = computed(() => this.filteredItems().filter(i => !i.bought));
+  boughtItems     = computed(() => this.filteredItems().filter(i => i.bought));
+  totalCount      = computed(() => this.items().length);
+  boughtCount     = computed(() => this.items().filter(i => i.bought).length);
   progressPercent = computed(() => {
     const total = this.totalCount();
     return total === 0 ? 0 : Math.round((this.boughtCount() / total) * 100);
@@ -193,10 +225,8 @@ export class ListComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     const id = this.sessionId();
     if (!id) return;
-
     this.supabaseService.getSession(id).then(s => this.session.set(s ?? undefined));
     this.loadItems(id);
-
     this.itemsChannel = this.supabaseService.subscribeToItems(id, () => this.loadItems(id));
   }
 
@@ -232,11 +262,7 @@ export class ListComponent implements OnInit, OnDestroy {
   }
 
   async onUnmarkBought(itemId: string): Promise<void> {
-    await this.supabaseService.updateItem(itemId, {
-      bought: false,
-      boughtBy: undefined,
-      boughtAt: undefined,
-    });
+    await this.supabaseService.updateItem(itemId, { bought: false, boughtBy: undefined, boughtAt: undefined });
   }
 
   async onEditItem(event: { id: string; changes: Partial<CampItem> }): Promise<void> {
@@ -253,5 +279,5 @@ export class ListComponent implements OnInit, OnDestroy {
     if (id) navigator.clipboard.writeText(id).catch(() => {});
   }
 
-  leaveSession(): void { this.sessionService.clearSession(); }
+  goToRooms(): void { this.sessionService.clearSession(); }
 }
