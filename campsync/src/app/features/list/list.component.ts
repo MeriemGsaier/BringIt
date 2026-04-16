@@ -445,7 +445,9 @@ export class ListComponent implements OnInit, OnDestroy {
   }
 
   private checkNicknameConflict(sessionId: string): void {
-    // Only warn on first visit (before the user has added any items)
+    // Only warn when the user actively joined/created a room this page session.
+    // Returning users (session restored from localStorage) are never flagged.
+    if (!this.sessionService.wasJustJoined) return;
     if (this.getMySessionIds().includes(sessionId)) return;
     const me = this.nicknameService.nickname() ?? '';
     if (me && this.items().some(i => i.addedBy === me)) {
