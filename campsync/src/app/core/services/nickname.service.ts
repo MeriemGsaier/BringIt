@@ -29,6 +29,11 @@ export class NicknameService {
     this.avatar.set(avatar);
   }
 
+  clearNickname(): void {
+    localStorage.removeItem(STORAGE_KEY);
+    this.nickname.set(null);
+  }
+
   hasNickname(): boolean {
     return !!this.nickname();
   }

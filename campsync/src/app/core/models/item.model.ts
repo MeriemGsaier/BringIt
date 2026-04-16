@@ -10,6 +10,7 @@ export interface CampItem {
   boughtBy?: string;
   boughtAt?: number;
   price?: number;
+  needsToBuy: boolean;
   addedBy: string;
   createdAt: number;
 }
