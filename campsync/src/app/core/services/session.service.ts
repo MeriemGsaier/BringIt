@@ -10,6 +10,9 @@ export class SessionService {
   readonly sessions  = signal<StoredSession[]>(this.loadSessions());
   readonly sessionId = signal<string | null>(this.loadActive());
 
+  /** True only when the user actively joined/created a room this page session. */
+  wasJustJoined = false;
+
   private loadSessions(): StoredSession[] {
     try { return JSON.parse(localStorage.getItem(SESSIONS_KEY) ?? '[]'); }
     catch { return []; }
@@ -27,6 +30,7 @@ export class SessionService {
   }
 
   setSession(id: string, name: string): void {
+    this.wasJustJoined = true;
     const current = this.sessions();
     if (!current.find(s => s.id === id)) {
       const updated = [...current, { id, name }];
