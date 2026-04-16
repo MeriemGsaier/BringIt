@@ -71,6 +71,7 @@ export class SupabaseService {
       bought_by: item.boughtBy ?? null,
       bought_at: item.boughtAt ?? null,
       price: item.price ?? null,
+      needs_to_buy: item.needsToBuy,
       added_by: item.addedBy,
       created_at: item.createdAt,
     });
@@ -87,12 +88,22 @@ export class SupabaseService {
     if ('boughtBy' in changes) row['bought_by'] = changes.boughtBy ?? null;
     if ('boughtAt' in changes) row['bought_at'] = changes.boughtAt ?? null;
     if ('price' in changes) row['price'] = changes.price ?? null;
+    if (changes.needsToBuy !== undefined) row['needs_to_buy'] = changes.needsToBuy;
     const { error } = await this.client.from('items').update(row).eq('id', itemId);
     if (error) throw error;
   }
 
   async deleteItem(itemId: string): Promise<void> {
     const { error } = await this.client.from('items').delete().eq('id', itemId);
+    if (error) throw error;
+  }
+
+  async deleteItemsByPerson(sessionId: string, person: string): Promise<void> {
+    const { error } = await this.client
+      .from('items')
+      .delete()
+      .eq('session_id', sessionId)
+      .or(`added_by.eq.${person},assigned_to.eq.${person}`);
     if (error) throw error;
   }
 
@@ -107,6 +118,7 @@ export class SupabaseService {
       boughtBy: row.bought_by ?? undefined,
       boughtAt: row.bought_at ?? undefined,
       price: row.price != null ? Number(row.price) : undefined,
+      needsToBuy: row.needs_to_buy !== false,
       addedBy: row.added_by,
       createdAt: row.created_at,
     };

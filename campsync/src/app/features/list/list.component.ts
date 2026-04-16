@@ -1,20 +1,23 @@
 import { Component, inject, signal, computed, OnInit, OnDestroy } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { CampItem, ItemCategory, CATEGORIES, CATEGORY_EMOJIS } from '../../core/models/item.model';
 import { Session } from '../../core/models/session.model';
 import { SupabaseService } from '../../core/services/supabase.service';
 import { SessionService } from '../../core/services/session.service';
-import { NicknameService } from '../../core/services/nickname.service';
+import { NicknameService, AVATARS } from '../../core/services/nickname.service';
 import { ItemCardComponent } from './item-card.component';
 import { AddItemComponent } from './add-item.component';
 
 type FilterCategory = ItemCategory | 'All';
 type FilterPerson = string | 'All';
 
+const MY_SESSIONS_KEY = 'bringit_my_sessions';
+
 @Component({
   selector: 'app-list',
   standalone: true,
-  imports: [ItemCardComponent, AddItemComponent],
+  imports: [ItemCardComponent, AddItemComponent, FormsModule],
   template: `
     <div class="min-h-screen bg-gradient-to-br from-forest-50 via-bark-50 to-earth-50">
 
@@ -22,7 +25,6 @@ type FilterPerson = string | 'All';
       <header class="sticky top-0 z-30 bg-white/90 backdrop-blur-sm border-b border-bark-100 shadow-sm">
         <div class="max-w-2xl mx-auto px-4 py-3 grid grid-cols-3 items-center gap-2">
 
-          <!-- Left: back navigation -->
           <button
             (click)="goToRooms()"
             class="flex items-center gap-1 text-forest-600 hover:text-forest-800 font-medium text-sm transition-colors w-fit"
@@ -33,7 +35,6 @@ type FilterPerson = string | 'All';
             Rooms
           </button>
 
-          <!-- Center: trip title + code -->
           <div class="text-center">
             <h1 class="font-bold text-bark-800 text-sm leading-tight truncate">
               ⛺ {{ session()?.name ?? 'Loading...' }}
@@ -44,7 +45,6 @@ type FilterPerson = string | 'All';
             </p>
           </div>
 
-          <!-- Right: user identity -->
           <div class="flex items-center gap-2 justify-end">
             <div class="w-8 h-8 rounded-full bg-forest-100 border border-forest-200 flex items-center justify-center text-lg leading-none flex-shrink-0">
               {{ avatar() }}
@@ -129,18 +129,38 @@ type FilterPerson = string | 'All';
               Everyone
             </button>
             @for (person of assignedPersons(); track person) {
-              <button
-                (click)="setPerson(person)"
-                class="flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors"
-                [class.bg-bark-600]="activePerson() === person"
-                [class.text-white]="activePerson() === person"
-                [class.bg-white]="activePerson() !== person"
-                [class.text-bark-600]="activePerson() !== person"
-                [class.border]="activePerson() !== person"
-                [class.border-bark-200]="activePerson() !== person"
-              >
-                👤 {{ person === nickname() ? 'Me' : person }} ({{ countByPerson(person) }})
-              </button>
+              <div class="flex items-center flex-shrink-0">
+                <button
+                  (click)="setPerson(person)"
+                  class="px-3 py-1.5 text-sm font-medium transition-colors"
+                  [class.rounded-full]="person === nickname()"
+                  [class.rounded-l-full]="person !== nickname()"
+                  [class.rounded-r-none]="person !== nickname()"
+                  [class.bg-bark-600]="activePerson() === person"
+                  [class.text-white]="activePerson() === person"
+                  [class.bg-white]="activePerson() !== person"
+                  [class.text-bark-600]="activePerson() !== person"
+                  [class.border]="activePerson() !== person"
+                  [class.border-r-0]="activePerson() !== person && person !== nickname()"
+                  [class.border-bark-200]="activePerson() !== person"
+                >
+                  👤 {{ person === nickname() ? 'Me' : person }} ({{ countByPerson(person) }})
+                </button>
+                @if (person !== nickname()) {
+                  <button
+                    (click)="requestRemovePerson(person)"
+                    class="px-2 py-1.5 text-sm rounded-r-full border border-l-0 transition-colors"
+                    [class.bg-bark-600]="activePerson() === person"
+                    [class.text-white]="activePerson() === person"
+                    [class.border-bark-600]="activePerson() === person"
+                    [class.bg-white]="activePerson() !== person"
+                    [class.text-bark-400]="activePerson() !== person"
+                    [class.hover:text-red-400]="activePerson() !== person"
+                    [class.border-bark-200]="activePerson() !== person"
+                    title="Remove {{ person }} from session"
+                  >&times;</button>
+                }
+              </div>
             }
           </div>
         }
@@ -220,6 +240,111 @@ type FilterPerson = string | 'All';
         (itemAdded)="onItemAdded($event)"
         (closed)="showAddModal.set(false)"
       />
+
+      <!-- Nickname Conflict Modal -->
+      @if (showNicknameConflict()) {
+        <div class="fixed inset-0 bg-bark-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
+            <div class="text-center mb-5">
+              <div class="text-4xl mb-3">⚠️</div>
+              <h3 class="text-lg font-bold text-bark-800">Nickname already taken</h3>
+              <p class="text-bark-500 text-sm mt-2">
+                Someone in this room is already using
+                <span class="font-semibold text-bark-700">"{{ nickname() }}"</span>.
+                Change your nickname to avoid confusion.
+              </p>
+            </div>
+            <div class="space-y-2">
+              <button
+                (click)="showNicknameConflict.set(false); showChangeNickname.set(true)"
+                class="btn-primary w-full"
+              >
+                ✏️ Change my nickname
+              </button>
+              <button
+                (click)="dismissConflict()"
+                class="btn-ghost w-full text-sm"
+              >
+                Continue anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- Change Nickname Modal -->
+      @if (showChangeNickname()) {
+        <div class="fixed inset-0 bg-bark-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
+            <div class="flex items-center justify-between mb-5">
+              <h3 class="text-lg font-bold text-bark-800">Change nickname</h3>
+              <button (click)="showChangeNickname.set(false)" class="text-bark-400 hover:text-bark-600 text-2xl leading-none">&times;</button>
+            </div>
+
+            <!-- Avatar picker -->
+            <div class="mb-4">
+              <p class="text-xs font-semibold text-bark-500 uppercase tracking-wider mb-2 text-center">Choose your avatar</p>
+              <div class="grid grid-cols-4 gap-2">
+                @for (av of avatars; track av) {
+                  <button
+                    type="button"
+                    class="text-2xl w-12 h-12 rounded-xl flex items-center justify-center transition-all border-2 mx-auto"
+                    [class.border-forest-500]="changeNicknameAvatar === av"
+                    [class.bg-forest-50]="changeNicknameAvatar === av"
+                    [class.border-transparent]="changeNicknameAvatar !== av"
+                    [class.bg-bark-50]="changeNicknameAvatar !== av"
+                    (click)="changeNicknameAvatar = av"
+                  >{{ av }}</button>
+                }
+              </div>
+            </div>
+
+            <input
+              class="input-field mb-4 text-center text-lg"
+              type="text"
+              [(ngModel)]="changeNicknameName"
+              placeholder="New nickname"
+              maxlength="20"
+              autofocus
+            />
+            <button
+              (click)="confirmNicknameChange()"
+              class="btn-primary w-full"
+              [disabled]="!changeNicknameName.trim()"
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      }
+
+      <!-- Remove Person Confirm Modal -->
+      @if (personToRemove()) {
+        <div
+          class="fixed inset-0 bg-bark-900/40 flex items-center justify-center z-50 p-4"
+          (click)="personToRemove.set(null)"
+        >
+          <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-xs" (click)="$event.stopPropagation()">
+            <div class="text-center mb-4">
+              <div class="text-4xl mb-3">👤</div>
+              <h3 class="text-lg font-bold text-bark-800">Remove participant?</h3>
+              <p class="text-bark-500 text-sm mt-1">
+                All items added by or assigned to
+                <span class="font-semibold text-bark-700">{{ personToRemove() }}</span>
+                will be deleted from this session.
+              </p>
+            </div>
+            <div class="flex gap-3">
+              <button (click)="personToRemove.set(null)" class="btn-ghost flex-1 text-sm py-2">Cancel</button>
+              <button
+                (click)="confirmRemovePerson()"
+                class="flex-1 text-sm py-2 rounded-xl font-semibold text-white bg-red-500 hover:bg-red-600 transition-colors"
+              >Remove</button>
+            </div>
+          </div>
+        </div>
+      }
+
     </div>
   `,
 })
@@ -231,6 +356,7 @@ export class ListComponent implements OnInit, OnDestroy {
   readonly sessionId = this.sessionService.sessionId;
   readonly nickname  = this.nicknameService.nickname;
   readonly avatar    = this.nicknameService.avatar;
+  readonly avatars   = AVATARS;
 
   session       = signal<Session | undefined>(undefined);
   items         = signal<CampItem[]>([]);
@@ -238,6 +364,15 @@ export class ListComponent implements OnInit, OnDestroy {
   activeFilter  = signal<FilterCategory>('All');
   activePerson  = signal<FilterPerson>('All');
   showAddModal  = signal(false);
+
+  // Nickname conflict
+  showNicknameConflict = signal(false);
+  showChangeNickname   = signal(false);
+  changeNicknameName   = '';
+  changeNicknameAvatar = AVATARS[0];
+
+  // Remove participant
+  personToRemove = signal<string | null>(null);
 
   readonly categories = CATEGORIES;
   private itemsChannel?: RealtimeChannel;
@@ -292,7 +427,72 @@ export class ListComponent implements OnInit, OnDestroy {
     const items = await this.supabaseService.fetchItems(sessionId);
     this.items.set(items);
     this.loading.set(false);
+    this.checkNicknameConflict(sessionId);
   }
+
+  // ── Nickname conflict ──────────────────────────────────────────────────────
+
+  private getMySessionIds(): string[] {
+    try { return JSON.parse(localStorage.getItem(MY_SESSIONS_KEY) ?? '[]'); }
+    catch { return []; }
+  }
+
+  private markSessionAsMine(sessionId: string): void {
+    const ids = this.getMySessionIds();
+    if (!ids.includes(sessionId)) {
+      localStorage.setItem(MY_SESSIONS_KEY, JSON.stringify([...ids, sessionId]));
+    }
+  }
+
+  private checkNicknameConflict(sessionId: string): void {
+    // Only warn on first visit (before the user has added any items)
+    if (this.getMySessionIds().includes(sessionId)) return;
+    const me = this.nicknameService.nickname() ?? '';
+    if (me && this.items().some(i => i.addedBy === me)) {
+      this.showNicknameConflict.set(true);
+    }
+  }
+
+  dismissConflict(): void {
+    const id = this.sessionId();
+    if (id) this.markSessionAsMine(id); // don't warn again on this device
+    this.showNicknameConflict.set(false);
+  }
+
+  confirmNicknameChange(): void {
+    const name = this.changeNicknameName.trim();
+    if (!name) return;
+    this.nicknameService.setNickname(name);
+    this.nicknameService.setAvatar(this.changeNicknameAvatar);
+    this.showChangeNickname.set(false);
+    this.changeNicknameName = '';
+    // After changing, mark this session as mine to avoid re-triggering
+    const id = this.sessionId();
+    if (id) this.markSessionAsMine(id);
+  }
+
+  // ── Remove participant ─────────────────────────────────────────────────────
+
+  requestRemovePerson(person: string): void {
+    this.personToRemove.set(person);
+  }
+
+  async confirmRemovePerson(): Promise<void> {
+    const person = this.personToRemove();
+    const sessionId = this.sessionId();
+    if (!person || !sessionId) return;
+
+    // Optimistic update
+    this.items.update(list =>
+      list.filter(i => i.addedBy !== person && i.assignedTo !== person)
+    );
+    if (this.activePerson() === person) this.activePerson.set('All');
+    this.personToRemove.set(null);
+
+    await this.supabaseService.deleteItemsByPerson(sessionId, person);
+  }
+
+  // ── Filters ────────────────────────────────────────────────────────────────
 
   setFilter(cat: FilterCategory): void { this.activeFilter.set(cat); }
   setPerson(person: FilterPerson): void { this.activePerson.set(person); }
@@ -313,9 +513,13 @@ export class ListComponent implements OnInit, OnDestroy {
     return list.filter(i => i.assignedTo === person).length;
   }
 
+  // ── Item actions ───────────────────────────────────────────────────────────
+
   async onItemAdded(item: Omit<CampItem, 'id'>): Promise<void> {
     const id = this.sessionId();
-    if (id) await this.supabaseService.addItem(id, item);
+    if (!id) return;
+    this.markSessionAsMine(id);
+    await this.supabaseService.addItem(id, item);
   }
 
   async onMarkBought(event: { id: string; price?: number }): Promise<void> {

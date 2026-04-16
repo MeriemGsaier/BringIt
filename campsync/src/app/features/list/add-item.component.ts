@@ -60,6 +60,10 @@ import { NicknameService } from '../../core/services/nickname.service';
                 }
               </select>
             </div>
+            <label class="flex items-center gap-2.5 text-sm text-bark-600 cursor-pointer select-none py-1">
+              <input type="checkbox" [(ngModel)]="needsToBuy" name="needsToBuy" class="w-4 h-4 accent-forest-600 rounded" />
+              <span>{{ needsToBuy ? '🛒 Need to buy' : '🏠 Already have it' }}</span>
+            </label>
             <button type="submit" class="btn-primary w-full" [disabled]="!name.trim()">
               Add to List
             </button>
@@ -82,6 +86,7 @@ export class AddItemComponent {
   quantity = 1;
   category: ItemCategory = 'Food';
   assignedTo = '';
+  needsToBuy = true;
 
   readonly currentNickname = computed(() => this.nicknameService.nickname() ?? 'Anonymous');
   readonly otherParticipants = computed(() =>
@@ -97,12 +102,14 @@ export class AddItemComponent {
       quantity: this.quantity || 1,
       assignedTo: this.assignedTo.trim() || nickname,
       bought: false,
+      needsToBuy: this.needsToBuy,
       addedBy: nickname,
       createdAt: Date.now(),
     });
     this.name = '';
     this.quantity = 1;
     this.assignedTo = '';
+    this.needsToBuy = true;
     this.closed.emit();
   }
 }

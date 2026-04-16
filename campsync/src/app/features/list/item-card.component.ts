@@ -48,17 +48,23 @@ import { NicknameService } from '../../core/services/nickname.service';
               }
             </select>
           </div>
-          <div class="flex gap-2 items-center">
-            <input
-              class="input-field flex-1 text-sm"
-              type="number"
-              [(ngModel)]="editPrice"
-              placeholder="Price (optional)"
-              min="0"
-              step="0.01"
-            />
-            <span class="text-xs text-bark-400 flex-shrink-0">price</span>
-          </div>
+          @if (editNeedsToBuy) {
+            <div class="flex gap-2 items-center">
+              <input
+                class="input-field flex-1 text-sm"
+                type="number"
+                [(ngModel)]="editPrice"
+                placeholder="Price (optional)"
+                min="0"
+                step="0.01"
+              />
+              <span class="text-xs text-bark-400 flex-shrink-0">price</span>
+            </div>
+          }
+          <label class="flex items-center gap-2.5 text-sm text-bark-600 cursor-pointer select-none py-0.5">
+            <input type="checkbox" [(ngModel)]="editNeedsToBuy" name="editNeedsToBuy" class="w-4 h-4 accent-forest-600 rounded" />
+            <span>{{ editNeedsToBuy ? '🛒 Need to buy' : '🏠 Already have it' }}</span>
+          </label>
           <div class="flex gap-2 justify-end">
             <button (click)="cancelEdit()" class="btn-ghost text-sm px-3 py-1.5">Cancel</button>
             <button
@@ -78,7 +84,7 @@ import { NicknameService } from '../../core/services/nickname.service';
           [class.border-forest-600]="item.bought"
           [class.border-bark-300]="!item.bought"
           [class.hover:border-forest-400]="!item.bought"
-          title="{{ item.bought ? 'Mark as not bought' : 'Mark as bought' }}"
+          title="{{ item.bought ? 'Unmark' : (item.needsToBuy ? 'Mark as bought' : 'Mark as packed') }}"
         >
           @if (item.bought) {
             <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-white" viewBox="0 0 20 20" fill="currentColor">
@@ -95,6 +101,9 @@ import { NicknameService } from '../../core/services/nickname.service';
                 <span class="badge {{ colors.bg }} {{ colors.text }} border {{ colors.border }}">
                   {{ categoryEmoji(item.category) }} {{ item.category }}
                 </span>
+                @if (!item.needsToBuy) {
+                  <span class="badge bg-bark-100 text-bark-500 border border-bark-200 text-xs">🏠 have it</span>
+                }
               </div>
               <p class="font-semibold text-bark-800 leading-snug mt-1" [class.line-through]="item.bought" [class.text-bark-400]="item.bought">
                 {{ item.name }}
@@ -106,7 +115,7 @@ import { NicknameService } from '../../core/services/nickname.service';
               </p>
               @if (item.bought && item.boughtBy) {
                 <p class="text-xs text-forest-600 mt-1 font-medium">
-                  Bought by {{ item.boughtBy }}@if (item.price != null) { · {{ item.price.toFixed(2) }} }
+                  {{ item.needsToBuy ? 'Bought' : 'Packed' }} by {{ item.boughtBy }}@if (item.needsToBuy && item.price != null) { · {{ item.price.toFixed(2) }} }
                 </p>
               }
             </div>
@@ -216,11 +225,12 @@ export class ItemCardComponent {
   readonly menuOpen   = signal(false);
   readonly buyingMode = signal(false);
 
-  editName       = '';
-  editQuantity   = 1;
+  editName        = '';
+  editQuantity    = 1;
   editCategory: ItemCategory = 'Food';
-  editAssignedTo = '';
+  editAssignedTo  = '';
   editPrice: number | null = null;
+  editNeedsToBuy  = true;
   pendingPrice: number | null = null;
 
   readonly currentNickname = computed(() => this.nicknameService.nickname() ?? 'Anonymous');
@@ -234,6 +244,8 @@ export class ItemCardComponent {
     const item = this.campItem();
     if (item.bought) {
       this.unmarkBought.emit(item.id);
+    } else if (!item.needsToBuy) {
+      this.markBought.emit({ id: item.id });
     } else if (!this.buyingMode()) {
       this.pendingPrice = null;
       this.buyingMode.set(true);
@@ -251,11 +263,12 @@ export class ItemCardComponent {
 
   startEdit(): void {
     const item = this.campItem();
-    this.editName       = item.name;
-    this.editQuantity   = item.quantity;
-    this.editCategory   = item.category;
-    this.editAssignedTo = item.assignedTo;
-    this.editPrice      = item.price ?? null;
+    this.editName        = item.name;
+    this.editQuantity    = item.quantity;
+    this.editCategory    = item.category;
+    this.editAssignedTo  = item.assignedTo;
+    this.editPrice       = item.price ?? null;
+    this.editNeedsToBuy  = item.needsToBuy;
     this.confirming.set(false);
     this.editing.set(true);
   }
@@ -267,12 +280,13 @@ export class ItemCardComponent {
   saveEdit(): void {
     if (!this.editName.trim()) return;
     const changes: Partial<CampItem> = {
-      name:       this.editName.trim(),
-      quantity:   this.editQuantity || 1,
-      category:   this.editCategory,
-      assignedTo: this.editAssignedTo,
+      name:        this.editName.trim(),
+      quantity:    this.editQuantity || 1,
+      category:    this.editCategory,
+      assignedTo:  this.editAssignedTo,
+      needsToBuy:  this.editNeedsToBuy,
     };
-    if (this.editPrice != null && this.editPrice > 0) {
+    if (this.editNeedsToBuy && this.editPrice != null && this.editPrice > 0) {
       changes.price = this.editPrice;
     } else {
       changes.price = undefined;
