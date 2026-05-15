@@ -8,7 +8,7 @@ export interface CampItem {
   assignedTo: string;
   bought: boolean;
   boughtBy?: string;
-  boughtAt?: string;
+  boughtAt?: number;
   price?: number;
   needsToBuy: boolean;
   addedBy: string;

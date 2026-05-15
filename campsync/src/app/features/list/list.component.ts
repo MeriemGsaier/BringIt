@@ -587,7 +587,7 @@ export class ListComponent implements OnInit, OnDestroy {
 
   async onMarkBought(event: { id: string; price?: number }): Promise<void> {
     const boughtBy = this.nicknameService.nickname() ?? 'Someone';
-    const boughtAt = new Date().toISOString();
+    const boughtAt = Date.now();
     this.items.update(list =>
       list.map(i => i.id === event.id ? { ...i, bought: true, boughtBy, boughtAt, price: event.price } : i)
     );
