@@ -23,6 +23,16 @@ export class SupabaseService {
     if (error) throw error;
   }
 
+  async getSessionParticipants(sessionId: string): Promise<string[]> {
+    const { data } = await this.client
+      .from('items')
+      .select('added_by, assigned_to')
+      .eq('session_id', sessionId);
+    if (!data) return [];
+    const names = data.flatMap((r: any) => [r.added_by, r.assigned_to]).filter(Boolean);
+    return [...new Set<string>(names)];
+  }
+
   async getSession(sessionId: string): Promise<Session | null> {
     const { data, error } = await this.client
       .from('sessions')
@@ -60,8 +70,9 @@ export class SupabaseService {
     this.client.removeChannel(channel);
   }
 
-  async addItem(sessionId: string, item: Omit<CampItem, 'id'>): Promise<void> {
+  async addItem(sessionId: string, item: CampItem): Promise<void> {
     const { error } = await this.client.from('items').insert({
+      id: item.id,
       session_id: sessionId,
       name: item.name,
       category: item.category,

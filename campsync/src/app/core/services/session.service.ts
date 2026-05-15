@@ -2,6 +2,7 @@ import { Injectable, signal } from '@angular/core';
 
 const SESSIONS_KEY = 'bringit_sessions';
 const ACTIVE_KEY   = 'bringit_active_session';
+const OWNED_KEY    = 'bringit_owned_sessions';
 
 export interface StoredSession { id: string; name: string; }
 
@@ -58,6 +59,22 @@ export class SessionService {
     localStorage.setItem(SESSIONS_KEY, JSON.stringify(updated));
     this.sessions.set(updated);
     if (this.sessionId() === id) this.clearSession();
+  }
+
+  isSessionOwned(id: string): boolean {
+    try {
+      const ids: string[] = JSON.parse(localStorage.getItem(OWNED_KEY) ?? '[]');
+      return ids.includes(id);
+    } catch { return false; }
+  }
+
+  markSessionAsOwned(id: string): void {
+    try {
+      const ids: string[] = JSON.parse(localStorage.getItem(OWNED_KEY) ?? '[]');
+      if (!ids.includes(id)) {
+        localStorage.setItem(OWNED_KEY, JSON.stringify([...ids, id]));
+      }
+    } catch {}
   }
 
   hasSession(): boolean {
