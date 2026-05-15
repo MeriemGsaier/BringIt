@@ -1,6 +1,6 @@
 export interface Session {
   id: string;
   name: string;
-  createdAt: string;
+  createdAt: number;
   createdBy: string;
 }
