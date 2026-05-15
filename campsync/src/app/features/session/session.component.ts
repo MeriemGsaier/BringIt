@@ -206,7 +206,7 @@ export class SessionComponent implements OnInit {
       await this.withTimeout(this.supabaseService.createSession({
         id,
         name,
-        createdAt: new Date().toISOString(),
+        createdAt: Date.now(),
         createdBy: this.nicknameService.nickname() ?? 'Unknown',
       }));
       this.sessionService.setSession(id, name);
