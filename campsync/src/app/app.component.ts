@@ -11,11 +11,11 @@ import { ListComponent } from './features/list/list.component';
   imports: [NicknameComponent, SessionComponent, ListComponent],
   template: `
     @if (!hasNickname()) {
-      <app-nickname (saved)="onNicknameSaved($event)" />
+      <app-nickname />
     }
 
     @if (hasNickname() && !hasSession()) {
-      <app-session (joined)="onSessionJoined($event)" />
+      <app-session />
     }
 
     @if (hasNickname() && hasSession()) {
@@ -30,11 +30,4 @@ export class AppComponent {
   hasNickname = computed(() => this.nicknameService.hasNickname());
   hasSession  = computed(() => this.sessionService.hasSession());
 
-  onNicknameSaved(_name: string): void {
-    // Signal update triggers re-render
-  }
-
-  onSessionJoined(_id: string): void {
-    // Signal update triggers re-render
-  }
 }

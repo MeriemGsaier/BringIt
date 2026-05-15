@@ -11,7 +11,7 @@ import { NicknameService } from '../../core/services/nickname.service';
     @if (isOpen()) {
       <div
         class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
-        (click)="closed.emit()"
+        (click)="close()"
       >
         <div
           class="bg-white rounded-2xl shadow-xl w-full max-w-md p-5"
@@ -20,7 +20,7 @@ import { NicknameService } from '../../core/services/nickname.service';
           <div class="flex items-center justify-between mb-4">
             <h3 class="font-bold text-bark-800 text-lg">Add Item</h3>
             <button
-              (click)="closed.emit()"
+              (click)="close()"
               class="text-bark-400 hover:text-bark-600 text-2xl leading-none"
             >&times;</button>
           </div>
@@ -106,8 +106,13 @@ export class AddItemComponent {
       addedBy: nickname,
       createdAt: Date.now(),
     });
+    this.close();
+  }
+
+  close(): void {
     this.name = '';
     this.quantity = 1;
+    this.category = 'Food';
     this.assignedTo = '';
     this.needsToBuy = true;
     this.closed.emit();

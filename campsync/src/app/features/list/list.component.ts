@@ -12,7 +12,6 @@ import { AddItemComponent } from './add-item.component';
 type FilterCategory = ItemCategory | 'All';
 type FilterPerson = string | 'All';
 
-const MY_SESSIONS_KEY = 'bringit_my_sessions';
 
 @Component({
   selector: 'app-list',
@@ -41,7 +40,12 @@ const MY_SESSIONS_KEY = 'bringit_my_sessions';
             </h1>
             <p class="text-xs text-bark-400 mt-0.5">
               <span class="font-mono font-bold tracking-widest text-forest-600">{{ sessionId() }}</span>
-              <button (click)="copyCode()" class="ml-1 text-bark-300 hover:text-forest-600 transition-colors" title="Copy code">📋</button>
+              <button
+                (click)="copyCode()"
+                class="ml-1 transition-colors"
+                [class]="copyState() === 'copied' ? 'text-forest-600' : copyState() === 'error' ? 'text-red-400' : 'text-bark-300 hover:text-forest-600'"
+                [title]="copyState() === 'copied' ? 'Copied!' : copyState() === 'error' ? 'Could not copy' : 'Copy code'"
+              >{{ copyState() === 'copied' ? '✅' : copyState() === 'error' ? '❌' : '📋' }}</button>
             </p>
           </div>
 
@@ -113,55 +117,66 @@ const MY_SESSIONS_KEY = 'bringit_my_sessions';
           }
         </div>
 
-        <!-- Person Filter -->
-        @if (assignedPersons().length > 1) {
-          <div class="flex gap-2 overflow-x-auto pb-1">
-            <button
-              (click)="setPerson('All')"
-              class="flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors"
-              [class.bg-bark-600]="activePerson() === 'All'"
-              [class.text-white]="activePerson() === 'All'"
-              [class.bg-white]="activePerson() !== 'All'"
-              [class.text-bark-600]="activePerson() !== 'All'"
-              [class.border]="activePerson() !== 'All'"
-              [class.border-bark-200]="activePerson() !== 'All'"
-            >
-              Everyone
-            </button>
-            @for (person of assignedPersons(); track person) {
-              <div class="flex items-center flex-shrink-0">
-                <button
-                  (click)="setPerson(person)"
-                  class="px-3 py-1.5 text-sm font-medium transition-colors"
-                  [class.rounded-full]="person === nickname()"
-                  [class.rounded-l-full]="person !== nickname()"
-                  [class.rounded-r-none]="person !== nickname()"
-                  [class.bg-bark-600]="activePerson() === person"
-                  [class.text-white]="activePerson() === person"
-                  [class.bg-white]="activePerson() !== person"
-                  [class.text-bark-600]="activePerson() !== person"
-                  [class.border]="activePerson() !== person"
-                  [class.border-r-0]="activePerson() !== person && person !== nickname()"
-                  [class.border-bark-200]="activePerson() !== person"
-                >
-                  👤 {{ person === nickname() ? 'Me' : person }} ({{ countByPerson(person) }})
-                </button>
-                @if (person !== nickname()) {
+        <!-- People -->
+        @if (assignedPersons().length > 0) {
+          <div>
+            <p class="text-xs font-semibold text-bark-400 uppercase tracking-wider mb-2.5">
+              People · {{ assignedPersons().length }}
+            </p>
+            <div class="flex gap-4 overflow-x-auto pb-1">
+
+              <!-- Everyone pill -->
+              <button (click)="setPerson('All')" class="flex-shrink-0 flex flex-col items-center gap-1">
+                <div
+                  class="w-11 h-11 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all"
+                  [class.bg-bark-600]="activePerson() === 'All'"
+                  [class.text-white]="activePerson() === 'All'"
+                  [class.border-bark-600]="activePerson() === 'All'"
+                  [class.bg-white]="activePerson() !== 'All'"
+                  [class.text-bark-400]="activePerson() !== 'All'"
+                  [class.border-bark-200]="activePerson() !== 'All'"
+                >All</div>
+                <span class="text-[11px] text-bark-500 font-medium">Everyone</span>
+              </button>
+
+              @for (person of assignedPersons(); track person) {
+                <div class="flex-shrink-0 flex flex-col items-center gap-1 relative">
+
+                  <!-- Avatar button -->
                   <button
-                    (click)="requestRemovePerson(person)"
-                    class="px-2 py-1.5 text-sm rounded-r-full border border-l-0 transition-colors"
-                    [class.bg-bark-600]="activePerson() === person"
-                    [class.text-white]="activePerson() === person"
-                    [class.border-bark-600]="activePerson() === person"
-                    [class.bg-white]="activePerson() !== person"
-                    [class.text-bark-400]="activePerson() !== person"
-                    [class.hover:text-red-400]="activePerson() !== person"
-                    [class.border-bark-200]="activePerson() !== person"
-                    title="Remove {{ person }} from session"
-                  >&times;</button>
-                }
-              </div>
-            }
+                    (click)="setPerson(activePerson() === person ? 'All' : person)"
+                    class="w-11 h-11 rounded-full transition-all ring-offset-1"
+                    [class.ring-2]="activePerson() === person"
+                    [class.ring-bark-600]="activePerson() === person"
+                  >
+                    @if (person === nickname()) {
+                      <div class="w-full h-full rounded-full bg-forest-100 border-2 border-forest-200 flex items-center justify-center text-xl leading-none">
+                        {{ avatar() }}
+                      </div>
+                    } @else {
+                      <div
+                        class="w-full h-full rounded-full flex items-center justify-center text-white text-sm font-bold"
+                        [style.background-color]="avatarColor(person)"
+                      >{{ person.charAt(0).toUpperCase() }}</div>
+                    }
+                  </button>
+
+                  <!-- Remove badge (non-me only) -->
+                  @if (person !== nickname()) {
+                    <button
+                      (click)="requestRemovePerson(person)"
+                      class="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-bark-200 hover:bg-red-400 text-bark-500 hover:text-white text-[10px] font-bold flex items-center justify-center transition-colors leading-none"
+                      title="Remove {{ person }}"
+                    >×</button>
+                  }
+
+                  <span class="text-[11px] text-bark-700 font-medium truncate max-w-[56px] text-center leading-tight">
+                    {{ person === nickname() ? 'Me' : person }}
+                  </span>
+                  <span class="text-[10px] text-bark-400">{{ countByPerson(person) }} item{{ countByPerson(person) === 1 ? '' : 's' }}</span>
+                </div>
+              }
+            </div>
           </div>
         }
 
@@ -345,6 +360,13 @@ const MY_SESSIONS_KEY = 'bringit_my_sessions';
         </div>
       }
 
+      <!-- Error toast -->
+      @if (mutationError()) {
+        <div class="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 bg-red-500 text-white text-sm font-medium px-4 py-2.5 rounded-xl shadow-lg whitespace-nowrap">
+          ⚠️ {{ mutationError() }}
+        </div>
+      }
+
     </div>
   `,
 })
@@ -364,22 +386,23 @@ export class ListComponent implements OnInit, OnDestroy {
   activeFilter  = signal<FilterCategory>('All');
   activePerson  = signal<FilterPerson>('All');
   showAddModal  = signal(false);
+  mutationError = signal('');
 
-  // Nickname conflict
   showNicknameConflict = signal(false);
   showChangeNickname   = signal(false);
   changeNicknameName   = '';
   changeNicknameAvatar = AVATARS[0];
 
-  // Remove participant
   personToRemove = signal<string | null>(null);
+
+  copyState = signal<'idle' | 'copied' | 'error'>('idle');
 
   readonly categories = CATEGORIES;
   private itemsChannel?: RealtimeChannel;
 
   participants = computed(() => {
     const me = this.nicknameService.nickname() ?? 'Anonymous';
-    const names = this.items().map(i => i.addedBy).filter(Boolean);
+    const names = this.items().flatMap(i => [i.addedBy, i.assignedTo]).filter(Boolean);
     return [...new Set([me, ...names])];
   });
 
@@ -424,31 +447,27 @@ export class ListComponent implements OnInit, OnDestroy {
   }
 
   private async loadItems(sessionId: string): Promise<void> {
-    const items = await this.supabaseService.fetchItems(sessionId);
-    this.items.set(items);
-    this.loading.set(false);
-    this.checkNicknameConflict(sessionId);
+    try {
+      const items = await this.supabaseService.fetchItems(sessionId);
+      this.items.set(items);
+    } catch {
+      // fall through — show empty list rather than infinite spinner
+    } finally {
+      this.loading.set(false);
+      this.checkNicknameConflict(sessionId);
+    }
+  }
+
+  private showError(msg: string): void {
+    this.mutationError.set(msg);
+    setTimeout(() => this.mutationError.set(''), 3000);
   }
 
   // ── Nickname conflict ──────────────────────────────────────────────────────
 
-  private getMySessionIds(): string[] {
-    try { return JSON.parse(localStorage.getItem(MY_SESSIONS_KEY) ?? '[]'); }
-    catch { return []; }
-  }
-
-  private markSessionAsMine(sessionId: string): void {
-    const ids = this.getMySessionIds();
-    if (!ids.includes(sessionId)) {
-      localStorage.setItem(MY_SESSIONS_KEY, JSON.stringify([...ids, sessionId]));
-    }
-  }
-
   private checkNicknameConflict(sessionId: string): void {
-    // Only warn when the user actively joined/created a room this page session.
-    // Returning users (session restored from localStorage) are never flagged.
     if (!this.sessionService.wasJustJoined) return;
-    if (this.getMySessionIds().includes(sessionId)) return;
+    if (this.sessionService.isSessionOwned(sessionId)) return;
     const me = this.nicknameService.nickname() ?? '';
     if (me && this.items().some(i => i.addedBy === me)) {
       this.showNicknameConflict.set(true);
@@ -457,7 +476,7 @@ export class ListComponent implements OnInit, OnDestroy {
 
   dismissConflict(): void {
     const id = this.sessionId();
-    if (id) this.markSessionAsMine(id); // don't warn again on this device
+    if (id) this.sessionService.markSessionAsOwned(id);
     this.showNicknameConflict.set(false);
   }
 
@@ -468,9 +487,8 @@ export class ListComponent implements OnInit, OnDestroy {
     this.nicknameService.setAvatar(this.changeNicknameAvatar);
     this.showChangeNickname.set(false);
     this.changeNicknameName = '';
-    // After changing, mark this session as mine to avoid re-triggering
     const id = this.sessionId();
-    if (id) this.markSessionAsMine(id);
+    if (id) this.sessionService.markSessionAsOwned(id);
   }
 
   // ── Remove participant ─────────────────────────────────────────────────────
@@ -484,14 +502,19 @@ export class ListComponent implements OnInit, OnDestroy {
     const sessionId = this.sessionId();
     if (!person || !sessionId) return;
 
-    // Optimistic update
+    const removed = this.items().filter(i => i.addedBy === person || i.assignedTo === person);
     this.items.update(list =>
       list.filter(i => i.addedBy !== person && i.assignedTo !== person)
     );
     if (this.activePerson() === person) this.activePerson.set('All');
     this.personToRemove.set(null);
 
-    await this.supabaseService.deleteItemsByPerson(sessionId, person);
+    try {
+      await this.supabaseService.deleteItemsByPerson(sessionId, person);
+    } catch {
+      this.items.update(list => [...list, ...removed]);
+      this.showError('Failed to remove participant.');
+    }
   }
 
   // ── Filters ────────────────────────────────────────────────────────────────
@@ -517,40 +540,98 @@ export class ListComponent implements OnInit, OnDestroy {
 
   // ── Item actions ───────────────────────────────────────────────────────────
 
-  async onItemAdded(item: Omit<CampItem, 'id'>): Promise<void> {
-    const id = this.sessionId();
-    if (!id) return;
-    this.markSessionAsMine(id);
-    await this.supabaseService.addItem(id, item);
+  async onItemAdded(partial: Omit<CampItem, 'id'>): Promise<void> {
+    const sessionId = this.sessionId();
+    if (!sessionId) return;
+    const item: CampItem = { ...partial, id: crypto.randomUUID() };
+    this.sessionService.markSessionAsOwned(sessionId);
+    this.items.update(list => [...list, item]);
+    try {
+      await this.supabaseService.addItem(sessionId, item);
+    } catch {
+      this.items.update(list => list.filter(i => i.id !== item.id));
+      this.showError('Failed to add item.');
+    }
   }
 
   async onMarkBought(event: { id: string; price?: number }): Promise<void> {
-    await this.supabaseService.updateItem(event.id, {
-      bought: true,
-      boughtBy: this.nicknameService.nickname() ?? 'Someone',
-      boughtAt: Date.now(),
-      price: event.price,
-    });
+    const boughtBy = this.nicknameService.nickname() ?? 'Someone';
+    const boughtAt = new Date().toISOString();
+    this.items.update(list =>
+      list.map(i => i.id === event.id ? { ...i, bought: true, boughtBy, boughtAt, price: event.price } : i)
+    );
+    try {
+      await this.supabaseService.updateItem(event.id, { bought: true, boughtBy, boughtAt, price: event.price });
+    } catch {
+      this.items.update(list =>
+        list.map(i => i.id === event.id
+          ? { ...i, bought: false, boughtBy: undefined, boughtAt: undefined, price: undefined }
+          : i
+        )
+      );
+      this.showError('Failed to mark item as bought.');
+    }
   }
 
   async onUnmarkBought(itemId: string): Promise<void> {
-    await this.supabaseService.updateItem(itemId, {
-      bought: false, boughtBy: undefined, boughtAt: undefined, price: undefined,
-    });
+    const prev = this.items().find(i => i.id === itemId);
+    this.items.update(list =>
+      list.map(i => i.id === itemId
+        ? { ...i, bought: false, boughtBy: undefined, boughtAt: undefined, price: undefined }
+        : i
+      )
+    );
+    try {
+      await this.supabaseService.updateItem(itemId, {
+        bought: false, boughtBy: undefined, boughtAt: undefined, price: undefined,
+      });
+    } catch {
+      if (prev) this.items.update(list => list.map(i => i.id === itemId ? prev : i));
+      this.showError('Failed to unmark item.');
+    }
   }
 
   async onEditItem(event: { id: string; changes: Partial<CampItem> }): Promise<void> {
-    await this.supabaseService.updateItem(event.id, event.changes);
+    const prev = this.items().find(i => i.id === event.id);
+    this.items.update(list =>
+      list.map(i => i.id === event.id ? { ...i, ...event.changes } : i)
+    );
+    try {
+      await this.supabaseService.updateItem(event.id, event.changes);
+    } catch {
+      if (prev) this.items.update(list => list.map(i => i.id === event.id ? prev : i));
+      this.showError('Failed to save changes.');
+    }
   }
 
   async onDelete(itemId: string): Promise<void> {
+    const prev = this.items().find(i => i.id === itemId);
     this.items.update(list => list.filter(i => i.id !== itemId));
-    await this.supabaseService.deleteItem(itemId);
+    try {
+      await this.supabaseService.deleteItem(itemId);
+    } catch {
+      if (prev) this.items.update(list => [...list, prev]);
+      this.showError('Failed to delete item.');
+    }
   }
 
   copyCode(): void {
     const id = this.sessionId();
-    if (id) navigator.clipboard.writeText(id).catch(() => {});
+    if (!id) return;
+    navigator.clipboard.writeText(id).then(() => {
+      this.copyState.set('copied');
+      setTimeout(() => this.copyState.set('idle'), 2000);
+    }).catch(() => {
+      this.copyState.set('error');
+      setTimeout(() => this.copyState.set('idle'), 2000);
+    });
+  }
+
+  avatarColor(name: string): string {
+    const palette = ['#4a7c59', '#c2922f', '#8b4513', '#2563eb', '#7c3aed', '#db2777', '#ea580c', '#0f766e'];
+    let h = 0;
+    for (let i = 0; i < name.length; i++) h = Math.imul(31, h) + name.charCodeAt(i) | 0;
+    return palette[Math.abs(h) % palette.length];
   }
 
   goToRooms(): void { this.sessionService.clearSession(); }
